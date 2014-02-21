@@ -1,0 +1,14 @@
+name: EvalJS
+main: com.github.Saposhiente.EvalJS.EvalJS
+version: 1.2.0
+author: Saposhiente
+commands:
+  evaljs:
+    description: Opens a javascript code prompt, or runs the specified code
+    aliases: [eval.js, code]
+    permission: evaljs.code
+    usage: /evaljs [code]
+permissions:
+  evaljs.code:
+    description: Allows you to execute JavaScript code (Dangerous!). You must also be listed as an admin in EvalJS config.yml
+    default: op
