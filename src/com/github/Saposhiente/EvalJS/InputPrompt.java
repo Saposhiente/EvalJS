@@ -5,7 +5,8 @@ import org.bukkit.conversations.Prompt;
 import org.bukkit.conversations.StringPrompt;
 
 /**
- *
+ * Asks the user for additional input during the middle of an evaluation (as a result of a call to JavascriptTools.reprompt())
+ * @see Resumable
  * @author Saposhiente
  */
 

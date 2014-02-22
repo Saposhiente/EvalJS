@@ -16,7 +16,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 
 /**
- * 
+ * Controls Rhino evaluation of JavaScript.
  * @author Saposhiente
  */
 public class JavascriptRunner {

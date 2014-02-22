@@ -4,7 +4,7 @@ import org.bukkit.conversations.Prompt;
 import org.mozilla.javascript.ContinuationPending;
 
 /**
- *
+ * @see Resumable
  * @author Saposhiente
  */
 public class EvaluationPending extends Resumable {

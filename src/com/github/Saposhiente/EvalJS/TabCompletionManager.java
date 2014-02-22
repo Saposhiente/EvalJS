@@ -14,7 +14,7 @@ import org.bukkit.event.player.PlayerChatTabCompleteEvent;
 import org.mozilla.javascript.Scriptable;
 
 /**
- *
+ * Monitors game events to determine when to tab complete, and provides the completion in that case.
  * @author Saposhiente
  */
 public class TabCompletionManager implements Listener, ConversationAbandonedListener {

@@ -9,7 +9,7 @@ import org.bukkit.conversations.Prompt;
 import org.bukkit.conversations.ValidatingPrompt;
 
 /**
- *
+ * Interface for paging through long output.
  * @author Saposhiente
  */
 public class PagePrompt extends ValidatingPrompt {

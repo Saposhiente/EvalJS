@@ -1,6 +1,6 @@
 name: EvalJS
 main: com.github.Saposhiente.EvalJS.EvalJS
-version: 1.2.0
+version: 1.3.0
 author: Saposhiente
 commands:
   evaljs:

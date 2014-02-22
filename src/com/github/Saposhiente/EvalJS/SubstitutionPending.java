@@ -8,7 +8,8 @@ import org.bukkit.conversations.Prompt;
 import org.mozilla.javascript.ContinuationPending;
 
 /**
- *
+ * Like EvaluationPending, except for when evaluation is within a substitution for a built-in command.
+ * @see Resumable
  * @author Saposhiente
  */
 public class SubstitutionPending extends Resumable {

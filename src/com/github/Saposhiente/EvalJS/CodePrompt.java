@@ -20,7 +20,8 @@ import org.bukkit.plugin.Plugin;
 import org.mozilla.javascript.ContinuationPending;
 
 /**
- *
+ * Main prompt that asks user for code, passes the code to the evaluator and returns output to player. 
+ * Uses other Prompt classes for asking for additional input and printing long output.
  * @author Saposhiente
  */
 public class CodePrompt extends StringPrompt {

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.logging.Level;
 
 /**
- *
+ * Finds information about classes; provided as a tool to the user in the JavaScript console.
  * @author Saposhiente
  */
 public class ClassInspector {
