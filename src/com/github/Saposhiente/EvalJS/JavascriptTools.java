@@ -13,32 +13,21 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContinuationPending;
 
 /**
- * Toolset for scripts.
+ * Useful Java methods provided to the user in the JavaScript console.
  * @author Saposhiente
  */
 public class JavascriptTools {
 
-    /*public static final boolean isUpToDate;
-    static {
-        boolean b;
-        try {
-            b = Bukkit.getServer() instanceof org.bukkit.craftbukkit.v1_5_R3.CraftServer;
-        } catch (Throwable t) {
-            b = false;
-        }
-        isUpToDate = b;
-    }*/
     public final JavascriptRunner bridge;
-
-    /*public Object getTileEntity(CraftBlock block) { Instead made as javascript tool because it is unlikely to be affected by versions
-    return ((CraftWorld)(block.getWorld())).getTileEntityAt(block.getX(), block.getY(),  block.getZ();
-    }*/
+    
     public JavascriptTools(JavascriptRunner bridge) {
         this.bridge = bridge;
     }
+    
     public Block getTargetBlock() {
         return bridge.getOwner() instanceof Player ? ((Player)bridge.getOwner()).getTargetBlock(null, 7) : null;
     }
+    
     public static File playerDataFolder = null; //set in onEnable
     public class JSNBTTools {
         public NBTOutputStream getOutputStream(String filename) throws IOException {
@@ -83,7 +72,15 @@ public class JavascriptTools {
         }
     }
     public final JSNBTTools nbt = new JSNBTTools();
-    /** Do not call from outside JS! */
+    
+    /**
+     * Prompts the user for more input. Returns null if this is not possible.
+     * Marked as Deprecated because this function is only to be called from within JavaScript code.
+     * @return The user's new input.
+     * @throws ContinuationPending Throws this as part of implementation. Do not catch this exception.
+     * @deprecated Public and static only out of necessity. Do not call this function from outside of JavaScript.
+     */
+    @Deprecated
     public static String reprompt() throws ContinuationPending {
         if (!EvalJS.instance.reprompt) return null;
         Context cx = Context.enter();

@@ -1,4 +1,4 @@
-
+//Main Javascript code run to set up the environment for the user and provide useful JavaScript functions.
 importClass(Packages.org.bukkit.Bukkit);
 importPackage(Packages.com.github.Saposhiente.EvalJS);
 var _logger = EvalJS.instance.getLogger();
@@ -15,8 +15,6 @@ function _debug(s) {
 }
 var So = "§";
 var me = _coder;
-/*var tools = {};
-tools.__proto__ = _tools;*/
 //tools.getTileEntity = function(block) {
 //    return block.getWorld().getTileEntitityAt(block.getX(), block.getY(), block.getZ());
 //};
@@ -195,7 +193,7 @@ function find(obj, item, pos) {
     } else {
         if (pos === undefined) {
             for (var i = 0; i < items.size(); i++) {
-                _output("[" + i + "] " + _inspector.getDescription(obj, items.get(i), clazz))
+                _output("[" + i + "] " + _inspector.getDescription(obj, items.get(i), clazz));
             }
             pos = parseInt(_reprompt());
         }

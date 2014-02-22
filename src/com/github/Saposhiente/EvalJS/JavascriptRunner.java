@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.github.Saposhiente.EvalJS;
 
 import java.io.File;
@@ -20,7 +16,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 
 /**
- *
+ * 
  * @author Saposhiente
  */
 public class JavascriptRunner {
@@ -31,7 +27,7 @@ public class JavascriptRunner {
 
     public JavascriptRunner(Conversable owner) throws IOException {
         this.owner = owner;
-        final String name =  owner instanceof CommandSender ? ((CommandSender) owner).getName() : owner.toString();
+        final String name = owner instanceof CommandSender ? ((CommandSender) owner).getName() : owner.toString();
         Context cx = Context.enter();
         try {
             scope = cx.initStandardObjects();

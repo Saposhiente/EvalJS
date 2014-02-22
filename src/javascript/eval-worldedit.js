@@ -110,7 +110,7 @@ function doSecurity() {
 }
 if (doSecurity()) {
     //###Prompt
-    var eval_worldEdit = Bukkit.getPluginManager().getPlugin("WorldEdit"); //TODO: make self plugin
+    var eval_worldEdit = Bukkit.getPluginManager().getPlugin("WorldEdit");
     var eval_logger = eval_worldEdit.getLogger();
     var eval_error = false;
     var eval_cmd = false;

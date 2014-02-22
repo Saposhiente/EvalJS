@@ -8,15 +8,15 @@
 #Set enabledUntil to a negative value to be always enabled
 #alwaysAllowConsole allows console to use EvalJS even when it is disabled (by enabledUntil)
 #showWelcome displays a helpful intorduction message when you enter the console
+#hideChat hides chat messages while you're in the console
 #tabComplete enables tab completion. Due to a Bukkit limitation, it may under certain circumstances attempt to tab complete a different plugin's conversation.
 #reprompt enables reprompting. Setting this to false allows Rhino to perform optimization, and may improve the performance of your code.
-#hideChat hides chat messages while you're in the console
 alwaysAllowConsole: true
 admins: ["Saposhiente"]
 timeout: 300
 enabledUntil: -1
 enabledUntilDateMode: 0
 showWelcome: true
+hideChat: false
 tabComplete: true
 reprompt: true
-hideChat: false

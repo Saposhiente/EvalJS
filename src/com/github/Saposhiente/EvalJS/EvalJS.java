@@ -7,47 +7,62 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.logging.Level;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.conversations.Conversable;
-import org.bukkit.conversations.ConversationAbandonedEvent;
-import org.bukkit.conversations.ConversationAbandonedListener;
 import org.bukkit.conversations.ConversationFactory;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerChatTabCompleteEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.mozilla.javascript.ContinuationPending;
-import org.mozilla.javascript.Scriptable;
 
 /**
- *
+ * Main plugin class. Manages configuration and opens code prompts.
  * @author Saposhiente
  */
-public class EvalJS extends JavaPlugin implements Listener, ConversationAbandonedListener {
+public class EvalJS extends JavaPlugin {
 
-    protected ClassDefSubstitutor substitutor;
-    public List<String> admins;
-    public boolean enabled;
-    public boolean alwaysAllowConsole;
-    public int timeout;
-    public static EvalJS instance;
+    static EvalJS instance;
+    public static EvalJS getInstance() {
+        return instance;
+    }
+    public static final boolean debug = false;
+    
+    ClassDefSubstitutor substitutor;
+    
     public File macroFolder;
+    
+    public boolean alwaysAllowConsole;
+    public List<String> admins;
+    private int timeout;
+    public boolean enabled;
     public boolean showWelcome;
-    protected boolean tabComplete;
+    private boolean hideChat;
     public boolean reprompt;
-    public static final boolean debug = true;
-    public boolean hideChat;
+    
+    private TabCompletionManager tabCompletionManager;
+    
+    protected ConversationFactory convFactory;
+
+    public int getTimeout() {
+        return timeout;
+    }
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+        convFactory = convFactory.withTimeout(timeout);
+    }
+    public boolean isHideChat() {
+        return hideChat;
+    }
+    public void setHideChat(boolean hideChat) {
+        this.hideChat = hideChat;
+        convFactory = convFactory.withModality(hideChat);
+    }
 
     @Override
     public void onEnable() {
@@ -55,35 +70,43 @@ public class EvalJS extends JavaPlugin implements Listener, ConversationAbandone
         getConfig().options().copyDefaults(true);
         saveDefaultConfig();
         instance = this;
+        
         File linuxSystem = new File("etc");
+        if (debug && linuxSystem.exists()) getLogger().info("Detected Linux OS");
         if (linuxSystem.exists() && linuxSystem.canWrite()) {
             getLogger().log(Level.SEVERE, "The server has access to system files! (Linux system folder /etc/)\nThis is a serious security risk, and an unacceptable one if you are running EvalJS. (One minecraft.net error, or one admin leaving their Minecraft window open, ore one admin getting the computer hacked, and BAM! This whole computer could be easily taken over and all of your data stolen.)\nCreate a separate user, who is not an administrator, to run the Minecraft server.\nShutting down server...");
             Bukkit.shutdown();
             return;
         }
         File windowsSystem = new File("Windows");
+        if (debug && windowsSystem.exists()) getLogger().info("Detected Windows OS");
         if (windowsSystem.exists() && windowsSystem.canWrite()) {
             getLogger().log(Level.SEVERE, "The server has access to system files! (Windows system folder C:\\Windows\\)\nThis is a serious security risk, and an unacceptable one if you are running EvalJS. (One minecraft.net error, or one admin leaving their Minecraft window open, ore one admin getting the computer hacked, and BAM! This whole computer could be easily taken over and all of your data stolen.)\nCreate a separate user, who is not an administrator, to run the Minecraft server.\nShutting down server...");
             Bukkit.shutdown();
             return;
         }
+        
         substitutor = new ClassDefSubstitutor(getLogger());
+        
         macroFolder = new File(getDataFolder(), "macros");
-        showWelcome = getConfig().getBoolean("showWelcome");
-        hideChat = getConfig().getBoolean("hideChat");
-        tabComplete = getConfig().getBoolean("tabComplete");
-        if (tabComplete) {
-            Bukkit.getPluginManager().registerEvents(this, this);
-        }
-        reprompt = getConfig().getBoolean("reprompt");
+        
         alwaysAllowConsole = getConfig().getBoolean("alwaysAllowConsole");
         admins = getConfig().getStringList("admins");
         timeout = getConfig().getInt("timeout");
+        showWelcome = getConfig().getBoolean("showWelcome");
+        hideChat = getConfig().getBoolean("hideChat");
+        final boolean tabComplete = getConfig().getBoolean("tabComplete");
+        reprompt = getConfig().getBoolean("reprompt");
+        
+        convFactory = new ConversationFactory(this).withTimeout(timeout).withLocalEcho(false).withModality(hideChat);
         if (tabComplete) {
-            convFactory = new ConversationFactory(this).withTimeout(timeout).withLocalEcho(false).withModality(hideChat).addConversationAbandonedListener(this);
+            if (tabCompletionManager == null) tabCompletionManager = new TabCompletionManager();
+            convFactory = convFactory.addConversationAbandonedListener(tabCompletionManager);
+            Bukkit.getPluginManager().registerEvents(tabCompletionManager, this);
         } else {
-            convFactory = new ConversationFactory(this).withTimeout(timeout).withLocalEcho(false).withModality(hideChat);
+            tabCompletionManager = null;
         }
+        
         for (World w : Bukkit.getWorlds()) {
             File target = new File(w.getWorldFolder(), "players");
             if (target.exists() && target.list(new FilenameFilter() {
@@ -100,6 +123,7 @@ public class EvalJS extends JavaPlugin implements Listener, ConversationAbandone
         if (JavascriptTools.playerDataFolder == null) {
             getLogger().log(Level.WARNING, "Could not find player data folder! Are there no players with saved data? (This will only affect NBT tools.)");
         }
+        
         Date enabledUntil;
         String dateString = getConfig().getString("enabledUntil");
         try {
@@ -139,60 +163,10 @@ public class EvalJS extends JavaPlugin implements Listener, ConversationAbandone
             getLogger().info("Server is in offline mode! Disabling player console...");
         }
     }
-    
-    
-    /**
-     * Makes changes to timeout and hideChat take effect until the next server restart.
-     */
-    public void reconfigure() {
-        convFactory = convFactory.withTimeout(timeout).withModality(hideChat);
-    }
 
     @Override
     public void onDisable() {
-        allConvos.clear();
-    }
-
-    public static interface PermissionsTester {
-
-        public boolean hasPermission(CommandSender sender);
-    }
-    public PermissionsTester permissionsTester = new PermissionsTester() { //allow overriding for additional security or for plugins that give custom login checking in offline mode
-        @Override
-        public boolean hasPermission(CommandSender sender) {
-            if (sender instanceof ConsoleCommandSender) {
-                return (alwaysAllowConsole || enabled) && sender.isOp();//check op JIC for IRC plugins
-            } else {
-                return enabled && sender.isOp() && admins.contains(sender.getName());
-            }
-        }
-    };
-    protected ConversationFactory convFactory;
-
-    public void openPrompt(Conversable coder) {
-        try {
-            CodePrompt prompt = new CodePrompt(new JavascriptRunner(coder), coder);
-            //Conversation conv = convFactory.withFirstPrompt(prompt).buildConversation(coder);
-            //prompt.conversation = conv;
-            prompt.bridge.debug(prompt.conversation.toString());
-            coder.beginConversation(prompt.conversation);
-            prompt.bridge.debug("Started conversation!");
-            if (tabComplete && coder instanceof Player) {
-                allConvos.put(((Player) coder).getUniqueId(), prompt.bridge);
-            }
-            if (showWelcome) {
-                coder.sendRawMessage("Welcome to the EvalJS console! Use inspectJS(this) for a list of functions and variables.");
-                coder.sendRawMessage("Names starting with an underscore are reserved; changing these variables will modify the behavior of EvalJS.");
-                coder.sendRawMessage("Lines starting with / are interpreted as commands. Use /exit to exit.");
-                coder.sendRawMessage("Lines ending with \\ are combined with the next line you input for multi-line statements.");
-                coder.sendRawMessage("Limited tab completion is available.");
-            } else {
-                coder.sendRawMessage("Welcome to the EvalJS console! Use /exit to exit.");
-            }
-        } catch (IOException ex) {
-            getLogger().log(Level.SEVERE, "Could not retrieve javascript code for " + coder, ex);
-            coder.sendRawMessage("§cCould not retrieve javascript code! See console for details.");
-        }
+        if (tabCompletionManager != null) tabCompletionManager.reset();
     }
 
     @Override
@@ -213,11 +187,11 @@ public class EvalJS extends JavaPlugin implements Listener, ConversationAbandone
                         sender.sendMessage("This code requires reprompting! Open a console to run.");
                     } catch (IOException ex) {
                         getLogger().log(Level.SEVERE, "Could not retrieve javascript code for " + sender.getName(), ex);
-                        sender.sendMessage("§cCould not retrieve javascript code! See console for details.");
+                        sender.sendMessage(Color.RED + "Could not retrieve javascript code! See console for details.");
                     }
                 }
             } else {
-                sender.sendMessage("§cCannot open javascript prompt: You are not Conversable. (Perhaps you are using an IRC plugin that doesn't support it? All players, and the console, are Conversable.)");
+                sender.sendMessage(Color.RED + "Cannot open javascript prompt: You are not Conversable. (Perhaps you are using an IRC plugin that doesn't support it? All players, and the console, are Conversable.)");
             }
         } else {
             String message = "Player " + sender.getName() + " tried to use EvalJS!";
@@ -226,118 +200,45 @@ public class EvalJS extends JavaPlugin implements Listener, ConversationAbandone
         }
         return true;
     }
-    public final Map<UUID, JavascriptRunner> allConvos = new HashMap<>();
 
-    @Override
-    public void conversationAbandoned(ConversationAbandonedEvent e) {
-        if (e.getContext().getForWhom() instanceof Player) {
-            allConvos.remove(((Player) e.getContext().getForWhom()).getUniqueId());
+    public static interface PermissionsTester {
+        public boolean hasPermission(CommandSender sender);
+    }
+    public PermissionsTester permissionsTester = new PermissionsTester() { //allow overriding for additional security or for plugins that give custom login checking in offline mode
+        @Override
+        public boolean hasPermission(CommandSender sender) {
+            if (sender instanceof ConsoleCommandSender) {
+                return (alwaysAllowConsole || enabled) && sender.isOp();//check op JIC for IRC plugins
+            } else {
+                return enabled && sender.isOp() && admins.contains(sender.getName());
+            }
+        }
+    };
+
+    public void openPrompt(Conversable coder) {
+        try {
+            CodePrompt prompt = new CodePrompt(new JavascriptRunner(coder), coder);
+            //Conversation conv = convFactory.withFirstPrompt(prompt).buildConversation(coder);
+            //prompt.conversation = conv;
+            prompt.bridge.debug(prompt.conversation.toString());
+            coder.beginConversation(prompt.conversation);
+            prompt.bridge.debug("Started conversation!");
+            if (tabCompletionManager != null && coder instanceof Player) {
+                tabCompletionManager.addConversation(((Player) coder).getUniqueId(), prompt.bridge);
+            }
+            if (showWelcome) {
+                coder.sendRawMessage("Welcome to the EvalJS console! Use inspectJS(this) for a list of functions and variables.");
+                coder.sendRawMessage("Names starting with an underscore are reserved; changing these variables will modify the behavior of EvalJS.");
+                coder.sendRawMessage("Lines starting with / are interpreted as commands. Use /exit to exit.");
+                coder.sendRawMessage("Lines ending with \\ are combined with the next line you input for multi-line statements.");
+                coder.sendRawMessage("Limited tab completion is available.");
+            } else {
+                coder.sendRawMessage("Welcome to the EvalJS console! Use /exit to exit.");
+            }
+        } catch (IOException ex) {
+            getLogger().log(Level.SEVERE, "Could not retrieve javascript code for " + coder, ex);
+            coder.sendRawMessage(Color.RED + "Could not retrieve javascript code! See console for details.");
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onPlayerChatTabComplete(PlayerChatTabCompleteEvent e) {
-        if (e.getPlayer().isConversing() && allConvos.containsKey(e.getPlayer().getUniqueId())) {
-            if (debug) {
-                getLogger().info("Detected tab completion");
-            }
-            int lastSeparator = -1;
-            boolean string = false;
-            loop:
-            for (int i = e.getLastToken().length() - 1; i >= 0; i--) {
-                char c = e.getLastToken().charAt(i);
-                if (!Character.isJavaIdentifierPart(c)) {
-                    switch (c) {
-                        case '.':
-                            continue;
-                        case ')':
-                            e.getTabCompletions().clear(); //no way to match
-                            return;
-                        case '"': //todo: doesn't recognize escaped strings
-                        case '\'':
-                            if (e.getLastToken().split(new String(new char[]{c})).length % 2 == 0) { //number of occurances is odd: inside a string
-                                return; //match usernames TODO: not working, match manually?
-                            }
-                            string = true;
-                        //fall thru to default
-                        default:
-                            lastSeparator = i;
-                            break loop;
-                    }
-                }
-            }
-            e.getTabCompletions().clear(); //not matching usernames; if no matches found, don't complete.
-            String word = e.getLastToken().substring(lastSeparator + 1, e.getLastToken().length());
-            String[] names = word.split("\\.", -1);
-            final int lastPos = names.length - 1;
-            JavascriptRunner bridge = allConvos.get(e.getPlayer().getUniqueId());
-            bridge.debug("Tab completing " + word);
-            Object parent = string ? bridge.getObject(bridge.getScope(), "String") : bridge.getScope();
-            int i = 0;
-            while (i < lastPos) {
-                if (!(parent instanceof Scriptable) || parent == Scriptable.NOT_FOUND) {
-                    bridge.debug("Tab completion: " + names[i - 1] + "." + names[i] + " not found");
-                    return; //no matches
-                }
-                parent = bridge.getObject((Scriptable) parent, names[i]);
-                i++;
-            }
-            if (parent instanceof Scriptable && parent != Scriptable.NOT_FOUND) {
-                String unfinished = names[lastPos];
-                String initial = e.getLastToken().substring(0, e.getLastToken().length() - unfinished.length());
-                for (Object id : ((Scriptable) parent).getIds()) {
-                    String s = id.toString();
-                    if (s.startsWith(unfinished)) {
-                        e.getTabCompletions().add(initial + s);
-                    }
-                }
-            }
-        }
-    }
-    /*public static final int bukkitVersion;
-
-     static {
-     int i;
-     Class c;
-     try {
-     c = org.bukkit.craftbukkit.v1_4_R1.entity.CraftPlayer.class;
-     i = 141;
-     } catch (NoClassDefFoundError e) {
-     try {
-     c = org.bukkit.craftbukkit.v1_5_R3.entity.CraftPlayer.class;
-     i = 153;
-     } catch (NoClassDefFoundError e2) {
-     Bukkit.getLogger().log(Level.WARNING, "[EvalJS] EvalJS is not up to date! Tab completion is disabled.");
-     i = 0;
-     }
-     }
-     bukkitVersion = i;
-     }
-     public static final Field conversationTracker;
-
-     static {
-     Field f;
-     try {
-     switch(bukkitVersion) {
-     case 141:
-     f = org.bukkit.craftbukkit.v1_4_R1.entity.CraftPlayer.class.getDeclaredField("conversationTracker");
-     break;
-     case 153:
-     f = org.bukkit.craftbukkit.v1_5_R3.entity.CraftPlayer.class.getDeclaredField("conversationTracker");
-     break;
-     default:
-     f = null;
-     }
-     } catch (NoSuchFieldException | SecurityException | NoClassDefFoundError ex) { //NoClassDefFoundError in new versions
-     Bukkit.getLogger().log(Level.SEVERE, "[EvalJS] Could not get conversation tracker field! Tab completion is disabled.", ex);
-     f = null;
-     }
-     conversationTracker = f;
-     }
-
-     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-     public void onPlayerChatTabComplete(PlayerChatTabCompleteEvent e) {
-     if (e.getPlayer().isConversing() && ((ConversationTracker)(conversationTracker.get(e.getPlayer()))).) {
-     }
-     }*/
 }
